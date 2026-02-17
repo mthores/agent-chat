@@ -6,16 +6,27 @@ SESSIONS_FILE="$CHAT_DIR/sessions.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-  echo "Usage: join.sh <name> <tmux-pane>"
+  echo "Usage: join.sh <name> [tmux-pane]"
   echo "  name       — session name (e.g. backend, frontend)"
-  echo "  tmux-pane  — tmux pane target (e.g. dev:backend)"
+  echo "  tmux-pane  — tmux pane target (auto-detected if inside tmux)"
   exit 1
 }
 
-[[ $# -lt 2 ]] && usage
+[[ $# -lt 1 ]] && usage
 
 NAME="$1"
-PANE="$2"
+PANE="${2:-}"
+
+# Auto-detect tmux pane if not provided
+if [[ -z "$PANE" ]]; then
+  if [[ -n "${TMUX:-}" ]]; then
+    PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
+  else
+    echo "Error: Not inside tmux and no pane specified."
+    echo "Either run inside tmux or provide a pane: join.sh <name> <tmux-pane>"
+    exit 1
+  fi
+fi
 
 # Create directories
 mkdir -p "$CHAT_DIR/messages" "$CHAT_DIR/inbox/$NAME" "$CHAT_DIR/inbox/$NAME/read" "$CHAT_DIR/pids"

@@ -11,6 +11,16 @@ Your session name is available in the environment variable `AGENT_CHAT_NAME`.
 
 ## Available Commands
 
+Join the chat from an active session (requires tmux):
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/join.sh <name>
+```
+
+Leave the chat:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/leave.sh
+```
+
 Send a message (EXACT command — do not change the script name):
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/send.sh @recipient "your message here"

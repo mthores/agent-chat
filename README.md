@@ -62,6 +62,16 @@ Once Claude Code opens, use `/resume` to pick up where you left off. The agent-c
 
 Your session also receives any pending messages from other agents.
 
+### Joining from an existing Claude Code session
+
+If you're already in a Claude Code session running inside tmux, you can join agent-chat without restarting:
+
+```
+/chat join backend
+```
+
+The tmux pane is auto-detected. Use `/chat leave` to disconnect.
+
 ### Sending messages
 
 Just tell Claude naturally:
@@ -85,6 +95,8 @@ When another session sends you a message:
 Use `/chat` slash command for manual operations:
 
 ```bash
+/chat join <name>                  # Join the chat (requires tmux)
+/chat leave                        # Leave the chat
 /chat send @frontend "message"     # Send a message
 /chat inbox                        # Check for new messages
 /chat history                      # View recent message history
