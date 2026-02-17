@@ -72,7 +72,7 @@ agent-chat/
 ### Installation
 
 ```bash
-git clone <repo-url> agent-chat
+git clone https://github.com/mthores/agent-chat.git
 cd agent-chat
 ./setup.sh
 ```
