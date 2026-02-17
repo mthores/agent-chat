@@ -1,0 +1,23 @@
+{
+  "name": "agent-chat-marketplace",
+  "owner": {
+    "name": "Mikkel"
+  },
+  "metadata": {
+    "description": "Marketplace for the agent-chat Claude Code plugin"
+  },
+  "plugins": [
+    {
+      "name": "agent-chat",
+      "description": "Group chat for Claude Code sessions. Enables agents to send handovers, share contracts, and coordinate across repos using @mentions.",
+      "version": "1.0.0",
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/mthores/agent-chat",
+      "author": {
+        "name": "Mikkel"
+      },
+      "tags": ["multi-agent", "chat", "handover", "coordination"]
+    }
+  ]
+}

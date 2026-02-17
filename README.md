@@ -28,13 +28,43 @@ File-based message bus with automatic delivery via filesystem watcher.
 
 ## Installation
 
+### Option A: Plugin marketplace (recommended)
+
+Install as a Claude Code plugin — works in every session automatically:
+
 ```bash
-git clone https://github.com/mthores/agent-chat.git agent-chat
+# Add the marketplace (one-time)
+/plugin marketplace add mthores/agent-chat
+
+# Install the plugin
+/plugin install agent-chat@agent-chat-marketplace
+```
+
+Then run the setup script to install dependencies and the `agent-chat` CLI:
+
+```bash
+cd ~/.claude/plugins/cache/agent-chat
+./setup.sh
+```
+
+### Option B: Manual clone
+
+```bash
+git clone https://github.com/mthores/agent-chat.git
 cd agent-chat
 ./setup.sh
 ```
 
 The setup script checks for dependencies (tmux, jq, fswatch/inotifywait), creates directories, and installs the `agent-chat` command to your PATH.
+
+### Updating
+
+If installed via marketplace, plugins update automatically. If cloned manually, pull the latest:
+
+```bash
+cd /path/to/agent-chat
+git pull
+```
 
 ## Usage
 

@@ -5,5 +5,8 @@
   "author": {
     "name": "Mikkel"
   },
+  "repository": "https://github.com/mthores/agent-chat",
+  "homepage": "https://github.com/mthores/agent-chat",
+  "license": "MIT",
   "keywords": ["multi-agent", "chat", "handover", "coordination"]
 }
