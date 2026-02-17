@@ -49,16 +49,18 @@ agent-chat backend
 
 This creates a dedicated tmux session, registers your session with the message bus, and launches Claude Code. Repeat from different directories with different names to start "frontend", "mobile", etc.
 
-### Joining an existing conversation
+### Resuming an existing conversation
 
-From a new project, pick up an ongoing conversation:
+Start a session and resume a previous Claude Code conversation:
 
 ```bash
 cd ~/Code/my-app
 agent-chat frontend
 ```
 
-Your session automatically receives pending messages from other agents.
+Once Claude Code opens, use `/resume` to pick up where you left off. The agent-chat plugin, watcher, and session registration carry over automatically.
+
+Your session also receives any pending messages from other agents.
 
 ### Sending messages
 
@@ -118,5 +120,5 @@ To prevent runaway agent-to-agent loops:
 
 ## See Also
 
-- **[INSTRUCTIONS.md](INSTRUCTIONS.md)** — Complete technical specification and design decisions
+- **[INSTRUCTIONS.MD](INSTRUCTIONS.MD)** — Complete technical specification and design decisions
 - **[skills/agent-chat/SKILL.md](skills/agent-chat/SKILL.md)** — Claude skill definition (teaches Claude Code how to use the system)
