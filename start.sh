@@ -56,6 +56,9 @@ else
   # Join the chat and start watcher before attaching
   bash "$PLUGIN_DIR/scripts/join.sh" "$NAME" "$PANE"
 
+  # Write session name to project dir so scripts can discover it
+  echo "$NAME" > "$PROJECT_DIR/.agent-chat-name"
+
   # Attach and launch Claude Code inside
   tmux send-keys -t "$PANE" "AGENT_CHAT_NAME=$NAME claude --plugin-dir $PLUGIN_DIR" Enter
   exec tmux attach -t "$TMUX_SESSION"
@@ -63,5 +66,9 @@ fi
 
 # Inside tmux — join the chat and launch Claude Code in foreground
 bash "$PLUGIN_DIR/scripts/join.sh" "$NAME" "$PANE"
+
+# Write session name to project dir so scripts can discover it
+echo "$NAME" > "$PROJECT_DIR/.agent-chat-name"
+
 cd "$PROJECT_DIR"
 AGENT_CHAT_NAME="$NAME" exec claude --plugin-dir "$PLUGIN_DIR"

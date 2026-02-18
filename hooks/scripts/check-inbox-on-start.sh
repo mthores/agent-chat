@@ -7,8 +7,11 @@ SESSIONS_FILE="$CHAT_DIR/sessions.json"
 # Exit silently if agent-chat isn't set up
 [[ -f "$SESSIONS_FILE" ]] || exit 0
 
-# Determine current session name: AGENT_CHAT_NAME env var > tmux pane detection
+# Determine current session name: AGENT_CHAT_NAME env var > .agent-chat-name file > tmux pane detection
 NAME="${AGENT_CHAT_NAME:-}"
+if [[ -z "$NAME" && -f ".agent-chat-name" ]]; then
+  NAME="$(cat .agent-chat-name)"
+fi
 if [[ -z "$NAME" && -n "${TMUX:-}" ]]; then
   CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
   NAME=$(jq -r --arg pane "$CURRENT_PANE" \

@@ -11,8 +11,11 @@ fi
 
 # Determine current session name from the sessions file by matching the current tmux pane
 # First try to get the current tmux pane identifier
-# Determine current session name: AGENT_CHAT_NAME env var > tmux pane > argument
+# Determine current session name: AGENT_CHAT_NAME env var > .agent-chat-name file > tmux pane > argument
 NAME="${AGENT_CHAT_NAME:-}"
+if [[ -z "$NAME" && -f ".agent-chat-name" ]]; then
+  NAME="$(cat .agent-chat-name)"
+fi
 if [[ -z "$NAME" && -n "${TMUX:-}" ]]; then
   CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
   NAME=$(jq -r --arg pane "$CURRENT_PANE" \
@@ -47,5 +50,10 @@ fi
 # Remove from sessions.json
 UPDATED=$(jq --arg name "$NAME" 'del(.[$name])' "$SESSIONS_FILE")
 echo "$UPDATED" > "$SESSIONS_FILE"
+
+# Clean up .agent-chat-name file if it matches this session
+if [[ -f ".agent-chat-name" && "$(cat .agent-chat-name)" == "$NAME" ]]; then
+  rm -f ".agent-chat-name"
+fi
 
 echo "Left agent-chat as '$NAME'"

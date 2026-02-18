@@ -7,7 +7,7 @@ allowed-tools: Bash
 
 You are part of a group chat with other Claude Code sessions. Each session has a name (e.g. "backend", "frontend", "mobile") and can send directed messages using `@name` syntax.
 
-Your session name is available in the environment variable `AGENT_CHAT_NAME`.
+Your session name is stored in the file `.agent-chat-name` in your project directory. Read it to discover your name. It is also available as the `AGENT_CHAT_NAME` environment variable (if set).
 
 ## Available Commands
 

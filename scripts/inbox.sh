@@ -4,8 +4,11 @@ set -euo pipefail
 CHAT_DIR="$HOME/agent-chat"
 SESSIONS_FILE="$CHAT_DIR/sessions.json"
 
-# Determine current session name: AGENT_CHAT_NAME env var > tmux pane > argument
+# Determine current session name: AGENT_CHAT_NAME env var > .agent-chat-name file > tmux pane > argument
 NAME="${AGENT_CHAT_NAME:-}"
+if [[ -z "$NAME" && -f ".agent-chat-name" ]]; then
+  NAME="$(cat .agent-chat-name)"
+fi
 if [[ -z "$NAME" && -n "${TMUX:-}" ]]; then
   CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
   NAME=$(jq -r --arg pane "$CURRENT_PANE" \

@@ -5,11 +5,20 @@ CHAT_DIR="$HOME/agent-chat"
 SESSIONS_FILE="$CHAT_DIR/sessions.json"
 
 usage() {
-  echo "Usage: agent-chat-send.sh <@recipient> <message>"
+  echo "Usage: agent-chat-send.sh [--from <name>] <@recipient> <message>"
+  echo "  --from     — sender name (overrides AGENT_CHAT_NAME and tmux detection)"
   echo "  recipient  — target session name (with or without @ prefix)"
   echo "  message    — the message to send"
   exit 1
 }
+
+# Parse --from flag
+FROM_FLAG=""
+if [[ "${1:-}" == "--from" ]]; then
+  FROM_FLAG="${2:-}"
+  [[ -z "$FROM_FLAG" ]] && usage
+  shift 2
+fi
 
 [[ $# -lt 2 ]] && usage
 
@@ -32,8 +41,11 @@ if ! jq -e --arg name "$RECIPIENT" '.[$name]' "$SESSIONS_FILE" >/dev/null 2>&1; 
   exit 1
 fi
 
-# Determine sender name: AGENT_CHAT_NAME env var > tmux pane detection
-SENDER="${AGENT_CHAT_NAME:-}"
+# Determine sender name: --from flag > AGENT_CHAT_NAME env var > .agent-chat-name file > tmux pane detection
+SENDER="${FROM_FLAG:-${AGENT_CHAT_NAME:-}}"
+if [[ -z "$SENDER" && -f ".agent-chat-name" ]]; then
+  SENDER="$(cat .agent-chat-name)"
+fi
 if [[ -z "$SENDER" && -n "${TMUX:-}" ]]; then
   CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
   SENDER=$(jq -r --arg pane "$CURRENT_PANE" \
@@ -42,7 +54,7 @@ fi
 
 if [[ -z "$SENDER" ]]; then
   echo "Error: Could not determine your session name."
-  echo "Either set AGENT_CHAT_NAME or run inside a registered tmux pane."
+  echo "Either set AGENT_CHAT_NAME, create .agent-chat-name in your project dir, or run inside a registered tmux pane."
   exit 1
 fi
 
