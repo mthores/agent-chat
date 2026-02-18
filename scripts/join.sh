@@ -121,6 +121,8 @@ BOOTEOF
     TERM_APP="${TERM_PROGRAM:-Terminal}"
     case "$TERM_APP" in
       iTerm*|iTerm2|iTerm.app)
+        # Capture the original session ID so the bootstrap can close it
+        ORIG_SESSION_ID=$(osascript -e 'tell application "iTerm2" to get unique ID of current session of current window' 2>/dev/null)
         osascript -e "tell application \"iTerm2\"
           tell current session of current window
             set newSession to (split vertically with same profile)
@@ -129,6 +131,23 @@ BOOTEOF
             write text \"bash $BOOTSTRAP_SCRIPT\"
           end tell
         end tell" 2>/dev/null && OPENED=true
+        # Append close command to bootstrap script (runs after tmux attach exits)
+        if [[ -n "$ORIG_SESSION_ID" ]]; then
+          # Write a helper script that closes the original pane
+          CLOSE_SCRIPT="/tmp/ac-close-orig-${NAME}.sh"
+          cat > "$CLOSE_SCRIPT" <<CLOSEEOF
+#!/bin/bash
+osascript -e 'tell application "iTerm2" to repeat with s in sessions of current tab of current window' \\
+  -e 'if unique ID of s is "${ORIG_SESSION_ID}" then' \\
+  -e 'tell s to close' \\
+  -e 'end if' \\
+  -e 'end repeat' 2>/dev/null
+CLOSEEOF
+          chmod +x "$CLOSE_SCRIPT"
+          # Inject the close command into the bootstrap, before tmux attach
+          sed -i '' "s|exec tmux attach|bash $CLOSE_SCRIPT \&\\
+exec tmux attach|" "$BOOTSTRAP_SCRIPT"
+        fi
         ;;
       *)
         osascript -e "tell application \"Terminal\"
