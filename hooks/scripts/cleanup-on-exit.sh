@@ -25,6 +25,28 @@ fi
 # Not a registered session — nothing to clean up
 [[ -n "$NAME" ]] || exit 0
 
+# Check if the session was handed off to a different tmux pane (e.g., via /chat join restart).
+# If so, don't clean up — the session is still alive in the new pane.
+REGISTERED_PANE=$(jq -r --arg name "$NAME" '.[$name].pane // ""' "$SESSIONS_FILE" 2>/dev/null)
+if [[ -n "$REGISTERED_PANE" ]]; then
+  # If we're in tmux, check if the registered pane matches ours
+  if [[ -n "${TMUX:-}" ]]; then
+    CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}' 2>/dev/null || true)"
+    if [[ "$REGISTERED_PANE" != "$CURRENT_PANE" ]]; then
+      # Session was handed off to a different pane — don't clean up
+      exit 0
+    fi
+  else
+    # Not in tmux, but the session is registered to a tmux pane — it was handed off
+    # Only clean up if the tmux session is actually dead
+    TMUX_SESSION="${REGISTERED_PANE%%:*}"
+    if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
+      # tmux session is still alive — don't clean up
+      exit 0
+    fi
+  fi
+fi
+
 # Kill the watcher process
 PID_FILE="$CHAT_DIR/pids/$NAME.pid"
 if [[ -f "$PID_FILE" ]]; then
