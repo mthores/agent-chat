@@ -45,19 +45,13 @@ if [[ -z "$PANE" ]]; then
   fi
 fi
 
-# When not in tmux (or pane conflict), create tmux session with claude --continue
+# When not in tmux (or pane conflict), bootstrap a new terminal with tmux
 if [[ "$NEEDS_RESTART" == true ]]; then
   SESSION_NAME="ac-${NAME}"
   PANE="${SESSION_NAME}:0"
   CWD="$(pwd)"
 
-  # Create the tmux session
-  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
-  fi
-  tmux new-session -d -s "$SESSION_NAME" -c "$CWD" -x 200 -y 50
-
-  # Register session and start watcher BEFORE launching claude
+  # Pre-create directories so the bootstrap script can use them
   mkdir -p "$CHAT_DIR/messages" "$CHAT_DIR/inbox/$NAME" "$CHAT_DIR/inbox/$NAME/read" "$CHAT_DIR/pids"
 
   # Kill existing watchers
@@ -69,67 +63,92 @@ if [[ "$NEEDS_RESTART" == true ]]; then
   fi
   pgrep -f "watcher\\.sh $NAME " 2>/dev/null | xargs kill 2>/dev/null || true
 
-  # Register the session
-  TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  UPDATED=$(jq --arg name "$NAME" --arg pane "$PANE" --arg ts "$TIMESTAMP" \
-    '.[$name] = {"name": $name, "pane": $pane, "joined_at": $ts}' "$SESSIONS_FILE")
-  echo "$UPDATED" > "$SESSIONS_FILE"
-
-  # Start the watcher
-  nohup bash "$SCRIPT_DIR/watcher.sh" "$NAME" "$PANE" > /dev/null 2>&1 &
-  echo $! > "$PID_FILE"
-
-  # Write session name
+  # Write session name early so it's available after restart
   echo "$NAME" > "$CWD/.agent-chat-name"
 
-  # Keep tmux session alive even if claude exits
-  tmux set-option -t "$SESSION_NAME" remain-on-exit on 2>/dev/null || true
-
-  # Launch claude --continue inside the tmux session
-  # Unset CLAUDECODE to avoid nested session detection, wait briefly for old session to close
-  tmux send-keys -t "$PANE" "unset CLAUDECODE; sleep 2 && AGENT_CHAT_NAME=$NAME claude --continue" Enter
-
-  # Write a wrapper script that attaches to tmux with retries
-  ATTACH_SCRIPT="/tmp/ac-attach-${NAME}.sh"
-  cat > "$ATTACH_SCRIPT" <<ATTACHEOF
+  # Write a self-contained bootstrap script that runs in the NEW terminal.
+  # This script creates the tmux session, registers, starts watcher, launches claude,
+  # and attaches — all from Terminal.app's environment (not Claude's sandbox).
+  BOOTSTRAP_SCRIPT="/tmp/ac-bootstrap-${NAME}.sh"
+  cat > "$BOOTSTRAP_SCRIPT" <<'BOOTEOF'
 #!/bin/bash
-echo "Connecting to agent-chat session $SESSION_NAME..."
-for i in 1 2 3 4 5; do
-  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    exec tmux attach -t "$SESSION_NAME"
-  fi
-  echo "Waiting for tmux session... (attempt \$i)"
-  sleep 1
-done
-echo "ERROR: Could not attach to tmux session '$SESSION_NAME'"
-echo "Try manually: tmux attach -t $SESSION_NAME"
-echo ""
-echo "Press Enter to close."
-read
-ATTACHEOF
-  chmod +x "$ATTACH_SCRIPT"
+set -euo pipefail
 
-  # Auto-open a new terminal window running the attach script
+NAME="__NAME__"
+SESSION_NAME="__SESSION_NAME__"
+PANE="__PANE__"
+CWD="__CWD__"
+SCRIPT_DIR="__SCRIPT_DIR__"
+CHAT_DIR="__CHAT_DIR__"
+SESSIONS_FILE="__SESSIONS_FILE__"
+
+echo "Setting up agent-chat session '$NAME'..."
+
+# Kill existing tmux session if present
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+  tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
+fi
+
+# Create the tmux session
+tmux new-session -d -s "$SESSION_NAME" -c "$CWD" -x 200 -y 50
+
+# Register the session in sessions.json
+TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+UPDATED=$(jq --arg name "$NAME" --arg pane "$PANE" --arg ts "$TIMESTAMP" \
+  '.[$name] = {"name": $name, "pane": $pane, "joined_at": $ts}' "$SESSIONS_FILE")
+echo "$UPDATED" > "$SESSIONS_FILE"
+
+# Start the watcher
+PID_FILE="$CHAT_DIR/pids/$NAME.pid"
+nohup bash "$SCRIPT_DIR/watcher.sh" "$NAME" "$PANE" > /dev/null 2>&1 &
+echo $! > "$PID_FILE"
+
+# Keep tmux session alive even if claude exits
+tmux set-option -t "$SESSION_NAME" remain-on-exit on 2>/dev/null || true
+
+# Launch claude --continue inside the tmux session
+tmux send-keys -t "$PANE" "AGENT_CHAT_NAME=$NAME claude --continue" Enter
+
+echo "Attaching to tmux session '$SESSION_NAME'..."
+sleep 1
+exec tmux attach -t "$SESSION_NAME"
+BOOTEOF
+
+  # Replace placeholders with actual values
+  sed -i '' "s|__NAME__|${NAME}|g" "$BOOTSTRAP_SCRIPT"
+  sed -i '' "s|__SESSION_NAME__|${SESSION_NAME}|g" "$BOOTSTRAP_SCRIPT"
+  sed -i '' "s|__PANE__|${PANE}|g" "$BOOTSTRAP_SCRIPT"
+  sed -i '' "s|__CWD__|${CWD}|g" "$BOOTSTRAP_SCRIPT"
+  sed -i '' "s|__SCRIPT_DIR__|${SCRIPT_DIR}|g" "$BOOTSTRAP_SCRIPT"
+  sed -i '' "s|__CHAT_DIR__|${CHAT_DIR}|g" "$BOOTSTRAP_SCRIPT"
+  sed -i '' "s|__SESSIONS_FILE__|${SESSIONS_FILE}|g" "$BOOTSTRAP_SCRIPT"
+  chmod +x "$BOOTSTRAP_SCRIPT"
+
+  # Auto-open a new terminal window running the bootstrap script
   OS="$(uname -s)"
   OPENED=false
   if [[ "$OS" == "Darwin" ]]; then
     TERM_APP="${TERM_PROGRAM:-Terminal}"
     case "$TERM_APP" in
       iTerm*|iTerm2|iTerm.app)
-        osascript -e "tell application \"iTerm2\" to create window with default profile command \"bash $ATTACH_SCRIPT\"" 2>/dev/null && OPENED=true
+        osascript -e "tell application \"iTerm2\"
+          tell current session of current window
+            split vertically with default profile command \"bash $BOOTSTRAP_SCRIPT\"
+          end tell
+        end tell" 2>/dev/null && OPENED=true
         ;;
       *)
         osascript -e "tell application \"Terminal\"
-          do script \"bash $ATTACH_SCRIPT\"
+          do script \"bash $BOOTSTRAP_SCRIPT\"
           activate
         end tell" 2>/dev/null && OPENED=true
         ;;
     esac
   elif [[ "$OS" == "Linux" ]]; then
     if command -v gnome-terminal >/dev/null 2>&1; then
-      gnome-terminal -- bash "$ATTACH_SCRIPT" 2>/dev/null && OPENED=true
+      gnome-terminal -- bash "$BOOTSTRAP_SCRIPT" 2>/dev/null && OPENED=true
     elif command -v xterm >/dev/null 2>&1; then
-      xterm -e bash "$ATTACH_SCRIPT" 2>/dev/null &
+      xterm -e bash "$BOOTSTRAP_SCRIPT" 2>/dev/null &
       OPENED=true
     fi
   fi
@@ -140,9 +159,9 @@ ATTACHEOF
     echo "A new terminal window has opened with your conversation resuming in tmux."
     echo "You can close this session."
   else
-    echo "Prepared tmux session '$SESSION_NAME' with Claude resuming your conversation."
+    echo "Prepared bootstrap script at: $BOOTSTRAP_SCRIPT"
     echo "To switch, exit this session and run:"
-    echo "  tmux attach -t $SESSION_NAME"
+    echo "  bash $BOOTSTRAP_SCRIPT"
   fi
   exit 0
 fi
