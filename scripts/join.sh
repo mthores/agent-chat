@@ -17,14 +17,54 @@ usage() {
 NAME="$1"
 PANE="${2:-}"
 
-# Auto-detect tmux pane if not provided
+# Auto-detect or resolve tmux pane
 if [[ -z "$PANE" ]]; then
   if [[ -n "${TMUX:-}" ]]; then
+    # Already inside tmux — auto-detect current pane
     PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
   else
-    echo "Error: Not inside tmux and no pane specified."
-    echo "Either run inside tmux or provide a pane: join.sh <name> <tmux-pane>"
-    exit 1
+    # Not inside tmux — check for existing sessions or offer to create one
+    if command -v tmux >/dev/null 2>&1 && tmux list-sessions 2>/dev/null; then
+      # tmux is running with active sessions — list them
+      echo ""
+      echo "NOT_IN_TMUX"
+      echo "SESSIONS_AVAILABLE"
+      tmux list-sessions -F '#{session_name}' 2>/dev/null | while read -r sess; do
+        # List all panes in this session
+        tmux list-panes -t "$sess" -F '#{session_name}:#{window_name}' 2>/dev/null
+      done
+      echo ""
+      echo "To join, pick a tmux pane from the list above and run:"
+      echo "  /chat join $NAME <pane>"
+      echo ""
+      echo "Or create a new tmux session:"
+      echo "  /chat join $NAME --new"
+      exit 2
+    else
+      # No tmux server running — offer to create one
+      echo "NOT_IN_TMUX"
+      echo "NO_SESSIONS"
+      echo ""
+      echo "No active tmux sessions found."
+      echo ""
+      echo "To create a new tmux session and join, run:"
+      echo "  /chat join $NAME --new"
+      exit 2
+    fi
+  fi
+fi
+
+# Handle --new flag: create a dedicated tmux session
+if [[ "$PANE" == "--new" ]]; then
+  SESSION_NAME="ac-${NAME}"
+  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo "tmux session '$SESSION_NAME' already exists."
+    PANE="${SESSION_NAME}:0"
+  else
+    tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
+    PANE="${SESSION_NAME}:0"
+    echo "Created tmux session '$SESSION_NAME'."
+    echo "Attach from another terminal with: tmux attach -t $SESSION_NAME"
   fi
 fi
 
