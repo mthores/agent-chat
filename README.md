@@ -37,7 +37,7 @@ Install as a Claude Code plugin — works in every session automatically:
 /plugin install agent-chat@agent-chat-marketplace
 ```
 
-On first session start, the plugin automatically sets up directories and installs the `agent-chat` CLI to `~/.local/bin/`. If any system dependencies are missing, Claude will tell you what to install.
+On first session start, the plugin automatically sets up directories and checks for dependencies. If any are missing, Claude will tell you what to install.
 
 ### Option B: Manual clone
 
@@ -47,11 +47,7 @@ cd agent-chat
 ./setup.sh
 ```
 
-The setup script checks for dependencies, creates directories, and installs the `agent-chat` command to your PATH.
-
 ### Dependencies
-
-The plugin requires these system tools:
 
 ```bash
 # macOS
@@ -72,35 +68,22 @@ git pull
 
 ## Usage
 
-### Starting a new session
+### Joining the chat
 
-From any project directory, start a named Claude Code session:
-
-```bash
-cd ~/Code/my-api
-agent-chat backend
-```
-
-This creates a dedicated tmux session, registers with the message bus, and launches Claude Code with the plugin loaded. Repeat from different directories with different names to start "frontend", "mobile", etc.
-
-### Resuming an existing conversation
-
-```bash
-cd ~/Code/my-app
-agent-chat frontend
-```
-
-Once Claude Code opens, use `/resume` to pick up where you left off. The plugin, watcher, and session registration carry over automatically. Any pending messages from other agents are delivered on start.
-
-### Joining from an existing Claude Code session
-
-If you're already in a Claude Code session running inside tmux and the plugin is installed, you can join agent-chat without restarting:
+Open a Claude Code session in any project directory and join with a name:
 
 ```
 /chat join backend
 ```
 
-The tmux pane is auto-detected. Use `/chat leave` to disconnect.
+If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created automatically. Repeat in other terminals with different names:
+
+```
+/chat join frontend
+/chat join mobile
+```
+
+Each session gets its own tmux pane — the plugin prevents two sessions from sharing the same pane. When you close Claude, the session is automatically cleaned up.
 
 ### Sending messages
 
@@ -120,12 +103,20 @@ When another session sends you a message:
 3. Claude reads the message and presents it to you
 4. You review and approve the plan before any work starts
 
-### Quick commands
+You can also check manually with `/chat inbox`.
 
-Use the `/chat` slash command for manual operations:
+### Leaving the chat
 
 ```
-/chat join <name>                  # Join the chat (requires tmux)
+/chat leave
+```
+
+This stops the watcher and removes your session. Also happens automatically when you close Claude.
+
+### Quick commands
+
+```
+/chat join <name>                  # Join the chat
 /chat leave                        # Leave the chat
 /chat send @frontend "message"     # Send a message
 /chat inbox                        # Check for new messages
@@ -133,12 +124,24 @@ Use the `/chat` slash command for manual operations:
 /chat who                          # List active sessions
 ```
 
+### Alternative: CLI launcher
+
+The plugin also installs an `agent-chat` CLI command that launches Claude Code inside a dedicated tmux session with the plugin pre-loaded:
+
+```bash
+cd ~/Code/my-api
+agent-chat backend
+```
+
+This is useful if you want live push notifications delivered directly into your Claude session. Use `/resume` to pick up a previous conversation.
+
 ## How it works
 
 - **File-based message bus:** `~/agent-chat/` is the shared directory. Each session gets a personal inbox at `~/agent-chat/inbox/<name>/`
 - **Filesystem watcher:** A background process (fswatch on macOS, inotifywait on Linux) watches each inbox for new files
 - **Nudge delivery:** When a message arrives, the watcher uses `tmux send-keys` to inject a notification into the target Claude Code session
-- **Auto-setup:** On first session start after install, a `SessionStart` hook creates directories, installs the CLI, and checks dependencies
+- **Auto-setup:** On first session start after install, a `SessionStart` hook creates directories and checks dependencies
+- **Auto-cleanup:** On session end, a `SessionEnd` hook kills the watcher and removes the session
 - **Persistence:** Messages are stored as markdown files, so everything survives session crashes
 - **Session registry:** `~/agent-chat/sessions.json` tracks active sessions and their tmux panes
 
