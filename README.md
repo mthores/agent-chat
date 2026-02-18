@@ -32,15 +32,12 @@ File-based message bus with automatic delivery via filesystem watcher.
 
 Install as a Claude Code plugin — works in every session automatically:
 
-```bash
-# Add the marketplace (one-time)
+```
 /plugin marketplace add mthores/agent-chat
-
-# Install the plugin
 /plugin install agent-chat@agent-chat-marketplace
 ```
 
-On first session start, the plugin auto-creates directories, installs the `agent-chat` CLI to `~/.local/bin/`, and checks for dependencies. If any are missing, Claude will tell you what to install.
+On first session start, the plugin automatically sets up directories and installs the `agent-chat` CLI to `~/.local/bin/`. If any system dependencies are missing, Claude will tell you what to install.
 
 ### Option B: Manual clone
 
@@ -50,11 +47,11 @@ cd agent-chat
 ./setup.sh
 ```
 
-The setup script checks for dependencies (tmux, jq, fswatch/inotifywait), creates directories, and installs the `agent-chat` command to your PATH.
+The setup script checks for dependencies, creates directories, and installs the `agent-chat` command to your PATH.
 
 ### Dependencies
 
-The plugin needs these system tools. Install any that are missing:
+The plugin requires these system tools:
 
 ```bash
 # macOS
@@ -66,7 +63,7 @@ sudo apt install tmux jq inotify-tools
 
 ### Updating
 
-If installed via marketplace, plugins update automatically. If cloned manually, pull the latest:
+Marketplace plugins update automatically. If cloned manually:
 
 ```bash
 cd /path/to/agent-chat
@@ -84,24 +81,20 @@ cd ~/Code/my-api
 agent-chat backend
 ```
 
-This creates a dedicated tmux session, registers your session with the message bus, and launches Claude Code. Repeat from different directories with different names to start "frontend", "mobile", etc.
+This creates a dedicated tmux session, registers with the message bus, and launches Claude Code with the plugin loaded. Repeat from different directories with different names to start "frontend", "mobile", etc.
 
 ### Resuming an existing conversation
-
-Start a session and resume a previous Claude Code conversation:
 
 ```bash
 cd ~/Code/my-app
 agent-chat frontend
 ```
 
-Once Claude Code opens, use `/resume` to pick up where you left off. The agent-chat plugin, watcher, and session registration carry over automatically.
-
-Your session also receives any pending messages from other agents.
+Once Claude Code opens, use `/resume` to pick up where you left off. The plugin, watcher, and session registration carry over automatically. Any pending messages from other agents are delivered on start.
 
 ### Joining from an existing Claude Code session
 
-If you're already in a Claude Code session running inside tmux, you can join agent-chat without restarting:
+If you're already in a Claude Code session running inside tmux and the plugin is installed, you can join agent-chat without restarting:
 
 ```
 /chat join backend
@@ -117,7 +110,7 @@ Just tell Claude naturally:
 Send a message to @frontend: the API contract is ready, GET /tasks returns { id: string, title: string, done: boolean }[]
 ```
 
-Claude reads your message, delivers it to the receiving session, and the watcher nudges the target agent. The receiver gets a notification, reads the message, presents it to their user with a summary and proposed plan, then waits for approval before acting.
+Claude delivers the message to the receiving session. The watcher nudges the target agent, who reads the message, presents it to their user with a summary and proposed plan, then waits for approval before acting.
 
 ### Receiving messages
 
@@ -125,13 +118,13 @@ When another session sends you a message:
 1. The watcher detects the new file
 2. Claude gets a nudge: "New message from @backend. Check inbox."
 3. Claude reads the message and presents it to you
-4. You review it and approve the plan before any work starts
+4. You review and approve the plan before any work starts
 
 ### Quick commands
 
-Use `/chat` slash command for manual operations:
+Use the `/chat` slash command for manual operations:
 
-```bash
+```
 /chat join <name>                  # Join the chat (requires tmux)
 /chat leave                        # Leave the chat
 /chat send @frontend "message"     # Send a message
@@ -142,20 +135,12 @@ Use `/chat` slash command for manual operations:
 
 ## How it works
 
-- **File-based message bus:** `~/agent-chat/` is the shared chat directory. Each session gets a personal inbox: `~/agent-chat/inbox/<name>/`
-- **Filesystem watcher:** A background process (fswatch on macOS, inotifywait on Linux) watches each session's inbox for new files
+- **File-based message bus:** `~/agent-chat/` is the shared directory. Each session gets a personal inbox at `~/agent-chat/inbox/<name>/`
+- **Filesystem watcher:** A background process (fswatch on macOS, inotifywait on Linux) watches each inbox for new files
 - **Nudge delivery:** When a message arrives, the watcher uses `tmux send-keys` to inject a notification into the target Claude Code session
+- **Auto-setup:** On first session start after install, a `SessionStart` hook creates directories, installs the CLI, and checks dependencies
 - **Persistence:** Messages are stored as markdown files, so everything survives session crashes
 - **Session registry:** `~/agent-chat/sessions.json` tracks active sessions and their tmux panes
-
-## Requirements
-
-- **tmux** — for session isolation
-- **jq** — for JSON processing
-- **fswatch** (macOS) — filesystem watcher
-- **inotifywait** (Linux) — filesystem watcher (from `inotify-tools`)
-
-The setup script offers to install missing dependencies via Homebrew (macOS) or apt (Linux).
 
 ## Guardrails
 
