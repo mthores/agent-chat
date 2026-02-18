@@ -123,7 +123,7 @@ BOOTEOF
       iTerm*|iTerm2|iTerm.app)
         osascript -e "tell application \"iTerm2\"
           tell current session of current window
-            set newSession to (split vertically with default profile)
+            set newSession to (split vertically with same profile)
           end tell
           tell newSession
             write text \"bash $BOOTSTRAP_SCRIPT\"
