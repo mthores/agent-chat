@@ -82,31 +82,37 @@ if [[ "$NEEDS_RESTART" == true ]]; then
   # Write session name
   echo "$NAME" > "$CWD/.agent-chat-name"
 
+  # Keep tmux session alive even if claude exits
+  tmux set-option -t "$SESSION_NAME" remain-on-exit on 2>/dev/null || true
+
   # Launch claude --continue inside the tmux session
-  tmux send-keys -t "$PANE" "AGENT_CHAT_NAME=$NAME claude --continue" Enter
+  # Unset CLAUDECODE to avoid nested session detection, wait briefly for old session to close
+  tmux send-keys -t "$PANE" "unset CLAUDECODE; sleep 2 && AGENT_CHAT_NAME=$NAME claude --continue" Enter
 
   # Auto-open a new terminal window attached to the tmux session
   OS="$(uname -s)"
   OPENED=false
   if [[ "$OS" == "Darwin" ]]; then
-    # macOS: detect terminal app and open new window
     TERM_APP="${TERM_PROGRAM:-Terminal}"
+    # Use a wrapper that keeps the window alive if attach fails
+    ATTACH_CMD="tmux attach -t $SESSION_NAME 2>/dev/null || (echo 'Waiting for session...' && sleep 2 && tmux attach -t $SESSION_NAME)"
     case "$TERM_APP" in
       iTerm*|iTerm2|iTerm.app)
-        osascript -e "tell application \"iTerm2\" to create window with default profile command \"tmux attach -t $SESSION_NAME\"" 2>/dev/null && OPENED=true
+        osascript -e "tell application \"iTerm2\" to create window with default profile command \"$ATTACH_CMD\"" 2>/dev/null && OPENED=true
         ;;
       *)
         osascript -e "tell application \"Terminal\"
-          do script \"tmux attach -t $SESSION_NAME\"
+          do script \"$ATTACH_CMD\"
           activate
         end tell" 2>/dev/null && OPENED=true
         ;;
     esac
   elif [[ "$OS" == "Linux" ]]; then
+    ATTACH_CMD="tmux attach -t $SESSION_NAME || (echo 'Waiting for session...' && sleep 2 && tmux attach -t $SESSION_NAME)"
     if command -v gnome-terminal >/dev/null 2>&1; then
-      gnome-terminal -- tmux attach -t "$SESSION_NAME" 2>/dev/null && OPENED=true
+      gnome-terminal -- bash -c "$ATTACH_CMD" 2>/dev/null && OPENED=true
     elif command -v xterm >/dev/null 2>&1; then
-      xterm -e "tmux attach -t $SESSION_NAME" 2>/dev/null &
+      xterm -e bash -c "$ATTACH_CMD" 2>/dev/null &
       OPENED=true
     fi
   fi
