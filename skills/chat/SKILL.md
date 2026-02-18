@@ -29,15 +29,16 @@ Script mapping:
 
 ## Handling /chat join restart
 
-If the join script output contains `RESTART_REQUIRED`, it means the user is not inside tmux. The script has already:
-1. Created a tmux session with Claude resuming this conversation via `--continue`
-2. Registered the session and started the watcher
-3. Attempted to open a new terminal pane/window with the tmux session
+If the join script output contains `RESTART_REQUIRED`, it means the user is not inside tmux. The script has already launched a bootstrap process that creates a tmux session and resumes the conversation via `claude --continue`.
 
-If the output says "A new terminal window has opened":
-1. Tell the user their conversation is resuming in the new pane.
+Check the output for `OPENED=true` or `OPENED=false`:
+
+**If `OPENED=true`:** A new terminal pane has opened with the session resuming.
+1. Tell the user: "Your conversation is resuming in the new pane."
 2. Ask if they want to close this session now using AskUserQuestion with options "Yes, close this session" and "No, keep it open".
 3. If they choose yes, run `exit` via Bash to end this session.
 
-If no window opened (fallback), tell the user:
-"Exit this session (Ctrl+C) and run: `bash /tmp/ac-bootstrap-<name>.sh`"
+**If `OPENED=false`:** The terminal could not be opened automatically. The output includes a `BOOTSTRAP=<path>` line.
+1. Tell the user: "Exit this session (Ctrl+C) and run: `bash <path>`"
+
+**Important:** Keep script output minimal — the continued session inherits this conversation history. Do NOT include phrases like "close this session" in Bash output, only in your own text responses.

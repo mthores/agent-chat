@@ -149,12 +149,10 @@ BOOTEOF
   echo "RESTART_REQUIRED"
   echo "SESSION=$SESSION_NAME"
   if [[ "$OPENED" == true ]]; then
-    echo "A new terminal window has opened with your conversation resuming in tmux."
-    echo "You can close this session."
+    echo "OPENED=true"
   else
-    echo "Prepared bootstrap script at: $BOOTSTRAP_SCRIPT"
-    echo "To switch, exit this session and run:"
-    echo "  bash $BOOTSTRAP_SCRIPT"
+    echo "OPENED=false"
+    echo "BOOTSTRAP=$BOOTSTRAP_SCRIPT"
   fi
   exit 0
 fi
