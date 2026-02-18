@@ -103,5 +103,8 @@ pgrep -f "watcher\\.sh $NAME " 2>/dev/null | xargs kill 2>/dev/null || true
 nohup bash "$SCRIPT_DIR/watcher.sh" "$NAME" "$PANE" > /dev/null 2>&1 &
 echo $! > "$PID_FILE"
 
+# Write session name to working directory for other scripts to find
+echo "$NAME" > .agent-chat-name
+
 echo "Joined agent-chat as '$NAME' (pane: $PANE)"
 echo "Watcher started (PID: $(cat "$PID_FILE"))"
