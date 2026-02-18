@@ -6,9 +6,10 @@ SESSIONS_FILE="$CHAT_DIR/sessions.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-  echo "Usage: join.sh <name> [tmux-pane]"
+  echo "Usage: join.sh <name> [tmux-pane | --new]"
   echo "  name       — session name (e.g. backend, frontend)"
   echo "  tmux-pane  — tmux pane target (auto-detected if inside tmux)"
+  echo "  --new      — create a dedicated tmux session ac-<name>"
   exit 1
 }
 
@@ -17,40 +18,53 @@ usage() {
 NAME="$1"
 PANE="${2:-}"
 
+# Initialize sessions.json early so we can check claimed panes
+mkdir -p "$CHAT_DIR"
+if [[ ! -f "$SESSIONS_FILE" ]]; then
+  echo '{}' > "$SESSIONS_FILE"
+fi
+
+# Helper: get list of panes already claimed by OTHER sessions
+get_claimed_panes() {
+  jq -r --arg self "$NAME" 'to_entries[] | select(.key != $self) | "\(.key)=\(.value.pane)"' "$SESSIONS_FILE" 2>/dev/null || true
+}
+
 # Auto-detect or resolve tmux pane
 if [[ -z "$PANE" ]]; then
   if [[ -n "${TMUX:-}" ]]; then
     # Already inside tmux — auto-detect current pane
     PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
+
+    # Check if this pane is already claimed by another session
+    CLAIMED_BY=$(jq -r --arg self "$NAME" --arg pane "$PANE" \
+      'to_entries[] | select(.key != $self and .value.pane == $pane) | .key' "$SESSIONS_FILE" 2>/dev/null | head -1)
+    if [[ -n "$CLAIMED_BY" ]]; then
+      echo "Warning: pane '$PANE' is already used by session '$CLAIMED_BY'."
+      echo "Creating dedicated session ac-${NAME} instead."
+      PANE="--new"
+    fi
   else
-    # Not inside tmux — check for existing sessions or offer to create one
-    if command -v tmux >/dev/null 2>&1 && tmux list-sessions 2>/dev/null; then
-      # tmux is running with active sessions — list them
-      echo ""
-      echo "NOT_IN_TMUX"
-      echo "SESSIONS_AVAILABLE"
+    # Not inside tmux — auto-create ac-<name>
+    PANE="--new"
+
+    # If tmux is available, show existing sessions for context
+    if command -v tmux >/dev/null 2>&1 && tmux list-sessions >/dev/null 2>&1; then
+      echo "Not inside tmux. Active tmux sessions:"
+      CLAIMED=$(get_claimed_panes)
       tmux list-sessions -F '#{session_name}' 2>/dev/null | while read -r sess; do
-        # List all panes in this session
-        tmux list-panes -t "$sess" -F '#{session_name}:#{window_name}' 2>/dev/null
+        tmux list-panes -t "$sess" -F '#{session_name}:#{window_name}' 2>/dev/null | while read -r pane; do
+          OWNER=$(echo "$CLAIMED" | grep "=$pane$" | cut -d= -f1)
+          if [[ -n "$OWNER" ]]; then
+            echo "  $pane  (in use by $OWNER)"
+          else
+            echo "  $pane"
+          fi
+        done
       done
       echo ""
-      echo "To join, pick a tmux pane from the list above and run:"
-      echo "  /chat join $NAME <pane>"
-      echo ""
-      echo "Or create a new tmux session:"
-      echo "  /chat join $NAME --new"
-      exit 2
-    else
-      # No tmux server running — offer to create one
-      echo "NOT_IN_TMUX"
-      echo "NO_SESSIONS"
-      echo ""
-      echo "No active tmux sessions found."
-      echo ""
-      echo "To create a new tmux session and join, run:"
-      echo "  /chat join $NAME --new"
-      exit 2
     fi
+
+    echo "Creating dedicated tmux session ac-${NAME}..."
   fi
 fi
 
@@ -58,23 +72,29 @@ fi
 if [[ "$PANE" == "--new" ]]; then
   SESSION_NAME="ac-${NAME}"
   if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    echo "tmux session '$SESSION_NAME' already exists."
     PANE="${SESSION_NAME}:0"
   else
     tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
     PANE="${SESSION_NAME}:0"
     echo "Created tmux session '$SESSION_NAME'."
-    echo "Attach from another terminal with: tmux attach -t $SESSION_NAME"
   fi
+  echo "Note: To receive live message notifications, attach to this session:"
+  echo "  tmux attach -t $SESSION_NAME"
+  echo "Or use '/chat inbox' to check messages manually."
+fi
+
+# Validate that the chosen pane isn't claimed by another session
+CLAIMED_BY=$(jq -r --arg self "$NAME" --arg pane "$PANE" \
+  'to_entries[] | select(.key != $self and .value.pane == $pane) | .key' "$SESSIONS_FILE" 2>/dev/null | head -1)
+if [[ -n "$CLAIMED_BY" ]]; then
+  echo "Error: pane '$PANE' is already claimed by session '$CLAIMED_BY'."
+  echo "Each session needs its own tmux pane for message delivery."
+  echo "Use: /chat join $NAME --new"
+  exit 1
 fi
 
 # Create directories
 mkdir -p "$CHAT_DIR/messages" "$CHAT_DIR/inbox/$NAME" "$CHAT_DIR/inbox/$NAME/read" "$CHAT_DIR/pids"
-
-# Initialize sessions.json if missing
-if [[ ! -f "$SESSIONS_FILE" ]]; then
-  echo '{}' > "$SESSIONS_FILE"
-fi
 
 # Check if already registered
 if jq -e --arg name "$NAME" '.[$name]' "$SESSIONS_FILE" >/dev/null 2>&1; then
