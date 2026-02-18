@@ -16,10 +16,7 @@ Join the chat from an active session:
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/join.sh <name>
 ```
 
-If not inside tmux, the script exits with code 2 and lists available tmux sessions (or reports none). In that case:
-- If sessions are listed, ask the user which pane to target, then run: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/join.sh <name> <chosen-pane>`
-- If no sessions exist, ask the user if they want to create one, then run: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/join.sh <name> --new`
-- After `--new`, remind the user to attach from another terminal: `tmux attach -t ac-<name>`
+The script handles everything automatically: auto-detects the tmux pane if inside tmux, or creates a dedicated `ac-<name>` session if not. No user interaction needed.
 
 Leave the chat:
 ```bash
