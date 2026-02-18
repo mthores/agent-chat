@@ -157,5 +157,4 @@ To prevent runaway agent-to-agent loops:
 
 ## See Also
 
-- **[INSTRUCTIONS.MD](INSTRUCTIONS.MD)** — Complete technical specification and design decisions
 - **[skills/agent-chat/SKILL.md](skills/agent-chat/SKILL.md)** — Claude skill definition (teaches Claude Code how to use the system)
