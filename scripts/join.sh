@@ -85,12 +85,42 @@ if [[ "$NEEDS_RESTART" == true ]]; then
   # Launch claude --continue inside the tmux session
   tmux send-keys -t "$PANE" "AGENT_CHAT_NAME=$NAME claude --continue" Enter
 
+  # Auto-open a new terminal window attached to the tmux session
+  OS="$(uname -s)"
+  OPENED=false
+  if [[ "$OS" == "Darwin" ]]; then
+    # macOS: detect terminal app and open new window
+    TERM_APP="${TERM_PROGRAM:-Terminal}"
+    case "$TERM_APP" in
+      iTerm*|iTerm2|iTerm.app)
+        osascript -e "tell application \"iTerm2\" to create window with default profile command \"tmux attach -t $SESSION_NAME\"" 2>/dev/null && OPENED=true
+        ;;
+      *)
+        osascript -e "tell application \"Terminal\"
+          do script \"tmux attach -t $SESSION_NAME\"
+          activate
+        end tell" 2>/dev/null && OPENED=true
+        ;;
+    esac
+  elif [[ "$OS" == "Linux" ]]; then
+    if command -v gnome-terminal >/dev/null 2>&1; then
+      gnome-terminal -- tmux attach -t "$SESSION_NAME" 2>/dev/null && OPENED=true
+    elif command -v xterm >/dev/null 2>&1; then
+      xterm -e "tmux attach -t $SESSION_NAME" 2>/dev/null &
+      OPENED=true
+    fi
+  fi
+
   echo "RESTART_REQUIRED"
-  echo "Prepared tmux session '$SESSION_NAME' with Claude resuming your conversation."
-  echo "TMUX_SESSION=$SESSION_NAME"
-  echo ""
-  echo "To switch, exit this session and run:"
-  echo "  tmux attach -t $SESSION_NAME"
+  echo "SESSION=$SESSION_NAME"
+  if [[ "$OPENED" == true ]]; then
+    echo "A new terminal window has opened with your conversation resuming in tmux."
+    echo "You can close this session."
+  else
+    echo "Prepared tmux session '$SESSION_NAME' with Claude resuming your conversation."
+    echo "To switch, exit this session and run:"
+    echo "  tmux attach -t $SESSION_NAME"
+  fi
   exit 0
 fi
 

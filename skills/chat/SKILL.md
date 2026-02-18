@@ -29,10 +29,13 @@ Script mapping:
 
 ## Handling /chat join restart
 
-If the join script output contains `RESTART_REQUIRED`, it means the user is not inside tmux and the script has:
-1. Created a tmux session with Claude already resuming this conversation
+If the join script output contains `RESTART_REQUIRED`, it means the user is not inside tmux. The script has already:
+1. Created a tmux session with Claude resuming this conversation via `--continue`
 2. Registered the session and started the watcher
+3. Attempted to open a new terminal window attached to the tmux session
 
-Tell the user: "I've set up a tmux session with your conversation ready to resume. Please exit this session (Ctrl+C) and run: `tmux attach -t ac-<name>`"
+If the output says "A new terminal window has opened", tell the user:
+"A new terminal window has opened with your conversation resuming. You can close this session."
 
-Do NOT ask the user for confirmation — just tell them what to do.
+If no window opened (fallback), tell the user:
+"Exit this session (Ctrl+C) and run: `tmux attach -t ac-<name>`"
