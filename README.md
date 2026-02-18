@@ -40,12 +40,7 @@ Install as a Claude Code plugin — works in every session automatically:
 /plugin install agent-chat@agent-chat-marketplace
 ```
 
-Then run the setup script to install dependencies and the `agent-chat` CLI:
-
-```bash
-cd ~/.claude/plugins/cache/agent-chat
-./setup.sh
-```
+On first session start, the plugin auto-creates directories, installs the `agent-chat` CLI to `~/.local/bin/`, and checks for dependencies. If any are missing, Claude will tell you what to install.
 
 ### Option B: Manual clone
 
@@ -56,6 +51,18 @@ cd agent-chat
 ```
 
 The setup script checks for dependencies (tmux, jq, fswatch/inotifywait), creates directories, and installs the `agent-chat` command to your PATH.
+
+### Dependencies
+
+The plugin needs these system tools. Install any that are missing:
+
+```bash
+# macOS
+brew install tmux jq fswatch
+
+# Linux
+sudo apt install tmux jq inotify-tools
+```
 
 ### Updating
 
