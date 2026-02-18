@@ -1,5 +1,7 @@
 ---
+name: chat
 description: Send and manage agent chat messages
+argument-hint: "<join|leave|send|inbox|history|who> [args]"
 allowed-tools: Bash
 ---
 
