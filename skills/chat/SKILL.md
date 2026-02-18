@@ -34,9 +34,8 @@ If the join script output contains `RESTART_REQUIRED`, it means the user is not 
 Check the output for `OPENED=true` or `OPENED=false`:
 
 **If `OPENED=true`:** A new terminal pane has opened with the session resuming.
-1. Tell the user: "Your conversation is resuming in the new pane."
-2. Ask if they want to close this session now using AskUserQuestion with options "Yes, close this session" and "No, keep it open".
-3. If they choose yes, run `exit` via Bash to end this session.
+1. Tell the user: "Your conversation is resuming in the new pane. Closing this session."
+2. Immediately run `exit` via Bash to close this session.
 
 **If `OPENED=false`:** The terminal could not be opened automatically. The output includes a `BOOTSTRAP=<path>` line.
 1. Tell the user: "Exit this session (Ctrl+C) and run: `bash <path>`"
