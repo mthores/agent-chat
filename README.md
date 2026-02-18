@@ -76,7 +76,7 @@ Open a Claude Code session in any project directory and join with a name:
 /chat join backend
 ```
 
-If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created automatically. Repeat in other terminals with different names:
+If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically (vertical split in iTerm2, new window in other terminals). Your conversation resumes via `claude --continue` and you'll be asked if you want to close the original session. Repeat in other terminals with different names:
 
 ```
 /chat join frontend

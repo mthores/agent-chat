@@ -32,10 +32,12 @@ Script mapping:
 If the join script output contains `RESTART_REQUIRED`, it means the user is not inside tmux. The script has already:
 1. Created a tmux session with Claude resuming this conversation via `--continue`
 2. Registered the session and started the watcher
-3. Attempted to open a new terminal window attached to the tmux session
+3. Attempted to open a new terminal pane/window with the tmux session
 
-If the output says "A new terminal window has opened", tell the user:
-"A new terminal window has opened with your conversation resuming. You can close this session."
+If the output says "A new terminal window has opened":
+1. Tell the user their conversation is resuming in the new pane.
+2. Ask if they want to close this session now using AskUserQuestion with options "Yes, close this session" and "No, keep it open".
+3. If they choose yes, run `exit` via Bash to end this session.
 
 If no window opened (fallback), tell the user:
-"Exit this session (Ctrl+C) and run: `tmux attach -t ac-<name>`"
+"Exit this session (Ctrl+C) and run: `bash /tmp/ac-bootstrap-<name>.sh`"
