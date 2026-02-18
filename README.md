@@ -76,7 +76,7 @@ Open a Claude Code session in any project directory and join with a name:
 /chat join backend
 ```
 
-If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically (vertical split in iTerm2, new window in other terminals). Your conversation resumes via `claude --continue` and you'll be asked if you want to close the original session. Repeat in other terminals with different names:
+If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically — as a vertical split in iTerm2, or a new window in other terminals. Your conversation resumes via `claude --continue` and the original pane closes automatically. Repeat in other terminals with different names:
 
 ```
 /chat join frontend
@@ -141,7 +141,7 @@ This is useful if you want live push notifications delivered directly into your 
 - **Filesystem watcher:** A background process (fswatch on macOS, inotifywait on Linux) watches each inbox for new files
 - **Nudge delivery:** When a message arrives, the watcher uses `tmux send-keys` to inject a notification into the target Claude Code session
 - **Auto-setup:** On first session start after install, a `SessionStart` hook creates directories and checks dependencies
-- **Auto-cleanup:** On session end, a `SessionEnd` hook kills the watcher and removes the session
+- **Auto-cleanup:** On session end, a `SessionEnd` hook kills the watcher and removes the session (skipped if the session was handed off to a new tmux pane)
 - **Persistence:** Messages are stored as markdown files, so everything survives session crashes
 - **Session registry:** `~/agent-chat/sessions.json` tracks active sessions and their tmux panes
 
