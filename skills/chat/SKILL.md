@@ -27,4 +27,12 @@ Script mapping:
 - `history` → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/history.sh`
 - `who` → `jq '.' ~/agent-chat/sessions.json`
 
-The join script handles everything automatically: if inside tmux it auto-detects the pane, if not it creates a dedicated tmux session `ac-<name>`. No user interaction needed — just run the command.
+## Handling /chat join restart
+
+If the join script output contains `RESTART_REQUIRED`, it means the user is not inside tmux and the script has:
+1. Created a tmux session with Claude already resuming this conversation
+2. Registered the session and started the watcher
+
+Tell the user: "I've set up a tmux session with your conversation ready to resume. Please exit this session (Ctrl+C) and run: `tmux attach -t ac-<name>`"
+
+Do NOT ask the user for confirmation — just tell them what to do.

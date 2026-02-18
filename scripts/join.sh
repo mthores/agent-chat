@@ -6,10 +6,9 @@ SESSIONS_FILE="$CHAT_DIR/sessions.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
-  echo "Usage: join.sh <name> [tmux-pane | --new]"
+  echo "Usage: join.sh <name> [tmux-pane]"
   echo "  name       — session name (e.g. backend, frontend)"
   echo "  tmux-pane  — tmux pane target (auto-detected if inside tmux)"
-  echo "  --new      — create a dedicated tmux session ac-<name>"
   exit 1
 }
 
@@ -17,17 +16,13 @@ usage() {
 
 NAME="$1"
 PANE="${2:-}"
+NEEDS_RESTART=false
 
 # Initialize sessions.json early so we can check claimed panes
 mkdir -p "$CHAT_DIR"
 if [[ ! -f "$SESSIONS_FILE" ]]; then
   echo '{}' > "$SESSIONS_FILE"
 fi
-
-# Helper: get list of panes already claimed by OTHER sessions
-get_claimed_panes() {
-  jq -r --arg self "$NAME" 'to_entries[] | select(.key != $self) | "\(.key)=\(.value.pane)"' "$SESSIONS_FILE" 2>/dev/null || true
-}
 
 # Auto-detect or resolve tmux pane
 if [[ -z "$PANE" ]]; then
@@ -41,47 +36,65 @@ if [[ -z "$PANE" ]]; then
     if [[ -n "$CLAIMED_BY" ]]; then
       echo "Warning: pane '$PANE' is already used by session '$CLAIMED_BY'."
       echo "Creating dedicated session ac-${NAME} instead."
-      PANE="--new"
+      PANE=""
+      NEEDS_RESTART=true
     fi
   else
-    # Not inside tmux — auto-create ac-<name>
-    PANE="--new"
-
-    # If tmux is available, show existing sessions for context
-    if command -v tmux >/dev/null 2>&1 && tmux list-sessions >/dev/null 2>&1; then
-      echo "Not inside tmux. Active tmux sessions:"
-      CLAIMED=$(get_claimed_panes)
-      tmux list-sessions -F '#{session_name}' 2>/dev/null | while read -r sess; do
-        tmux list-panes -t "$sess" -F '#{session_name}:#{window_name}' 2>/dev/null | while read -r pane; do
-          OWNER=$(echo "$CLAIMED" | grep "=$pane$" | cut -d= -f1)
-          if [[ -n "$OWNER" ]]; then
-            echo "  $pane  (in use by $OWNER)"
-          else
-            echo "  $pane"
-          fi
-        done
-      done
-      echo ""
-    fi
-
-    echo "Creating dedicated tmux session ac-${NAME}..."
+    # Not inside tmux — need to restart in tmux
+    NEEDS_RESTART=true
   fi
 fi
 
-# Handle --new flag: create a dedicated tmux session
-if [[ "$PANE" == "--new" ]]; then
+# When not in tmux (or pane conflict), create tmux session with claude --continue
+if [[ "$NEEDS_RESTART" == true ]]; then
   SESSION_NAME="ac-${NAME}"
+  PANE="${SESSION_NAME}:0"
+  CWD="$(pwd)"
+
+  # Create the tmux session
   if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    PANE="${SESSION_NAME}:0"
-  else
-    tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
-    PANE="${SESSION_NAME}:0"
-    echo "Created tmux session '$SESSION_NAME'."
+    tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
   fi
-  echo "Note: To receive live message notifications, attach to this session:"
+  tmux new-session -d -s "$SESSION_NAME" -c "$CWD" -x 200 -y 50
+
+  # Register session and start watcher BEFORE launching claude
+  mkdir -p "$CHAT_DIR/messages" "$CHAT_DIR/inbox/$NAME" "$CHAT_DIR/inbox/$NAME/read" "$CHAT_DIR/pids"
+
+  # Kill existing watchers
+  PID_FILE="$CHAT_DIR/pids/$NAME.pid"
+  if [[ -f "$PID_FILE" ]]; then
+    OLD_PID=$(cat "$PID_FILE")
+    kill -0 "$OLD_PID" 2>/dev/null && kill "$OLD_PID" 2>/dev/null || true
+    rm -f "$PID_FILE"
+  fi
+  pgrep -f "watcher\\.sh $NAME " 2>/dev/null | xargs kill 2>/dev/null || true
+
+  # Register the session
+  TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  UPDATED=$(jq --arg name "$NAME" --arg pane "$PANE" --arg ts "$TIMESTAMP" \
+    '.[$name] = {"name": $name, "pane": $pane, "joined_at": $ts}' "$SESSIONS_FILE")
+  echo "$UPDATED" > "$SESSIONS_FILE"
+
+  # Start the watcher
+  nohup bash "$SCRIPT_DIR/watcher.sh" "$NAME" "$PANE" > /dev/null 2>&1 &
+  echo $! > "$PID_FILE"
+
+  # Write session name
+  echo "$NAME" > "$CWD/.agent-chat-name"
+
+  # Launch claude --continue inside the tmux session
+  tmux send-keys -t "$PANE" "AGENT_CHAT_NAME=$NAME claude --continue" Enter
+
+  echo "RESTART_REQUIRED"
+  echo "Prepared tmux session '$SESSION_NAME' with Claude resuming your conversation."
+  echo "TMUX_SESSION=$SESSION_NAME"
+  echo ""
+  echo "To switch, exit this session and run:"
   echo "  tmux attach -t $SESSION_NAME"
-  echo "Or use '/chat inbox' to check messages manually."
+  exit 0
 fi
+
+# --- Normal flow: already inside tmux with a valid pane ---
 
 # Validate that the chosen pane isn't claimed by another session
 CLAIMED_BY=$(jq -r --arg self "$NAME" --arg pane "$PANE" \
@@ -89,7 +102,6 @@ CLAIMED_BY=$(jq -r --arg self "$NAME" --arg pane "$PANE" \
 if [[ -n "$CLAIMED_BY" ]]; then
   echo "Error: pane '$PANE' is already claimed by session '$CLAIMED_BY'."
   echo "Each session needs its own tmux pane for message delivery."
-  echo "Use: /chat join $NAME --new"
   exit 1
 fi
 
@@ -116,7 +128,6 @@ if [[ -f "$PID_FILE" ]]; then
   fi
   rm -f "$PID_FILE"
 fi
-# Also kill any orphaned watcher processes for this session name
 pgrep -f "watcher\\.sh $NAME " 2>/dev/null | xargs kill 2>/dev/null || true
 
 # Start the watcher in the background
