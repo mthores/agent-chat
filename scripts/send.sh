@@ -47,7 +47,7 @@ if [[ -z "$SENDER" && -f ".agent-chat-name" ]]; then
   SENDER="$(cat .agent-chat-name)"
 fi
 if [[ -z "$SENDER" && -n "${TMUX:-}" ]]; then
-  CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
+  CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_index}')"
   SENDER=$(jq -r --arg pane "$CURRENT_PANE" \
     'to_entries[] | select(.value.pane == $pane) | .key' "$SESSIONS_FILE" | head -1)
 fi

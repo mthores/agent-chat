@@ -19,7 +19,7 @@ if [[ -z "$NAME" && -f ".agent-chat-name" ]]; then
   NAME="$(cat .agent-chat-name)"
 fi
 if [[ -z "$NAME" && -n "${TMUX:-}" ]]; then
-  CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
+  CURRENT_PANE="$(tmux display-message -p '#{session_name}:#{window_index}')"
   NAME=$(jq -r --arg pane "$CURRENT_PANE" \
     'to_entries[] | select(.value.pane == $pane) | .key' "$SESSIONS_FILE" | head -1)
 fi
