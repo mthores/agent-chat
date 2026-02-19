@@ -4,6 +4,7 @@ set -euo pipefail
 CHAT_DIR="$HOME/agent-chat"
 SESSIONS_FILE="$CHAT_DIR/sessions.json"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
 usage() {
   echo "Usage: join.sh <name> [tmux-pane]"
@@ -79,6 +80,8 @@ SCRIPT_DIR="${SCRIPT_DIR}"
 CHAT_DIR="${CHAT_DIR}"
 SESSIONS_FILE="${SESSIONS_FILE}"
 
+source "\$SCRIPT_DIR/lib.sh"
+
 echo "Setting up agent-chat session '\$NAME'..."
 
 # Kill existing tmux session if present
@@ -93,10 +96,12 @@ tmux new-session -d -s "\$SESSION_NAME" -c "\$CWD" -x 200 -y 50
 PANE="\$(tmux display-message -t "\$SESSION_NAME" -p '#{session_name}:#{window_index}')"
 
 # Register the session in sessions.json
+sessions_lock
 TIMESTAMP="\$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 UPDATED=\$(jq --arg name "\$NAME" --arg pane "\$PANE" --arg ts "\$TIMESTAMP" \
   '.[\$name] = {"name": \$name, "pane": \$pane, "joined_at": \$ts}' "\$SESSIONS_FILE")
 echo "\$UPDATED" > "\$SESSIONS_FILE"
+sessions_unlock
 
 # Start the watcher
 PID_FILE="\$CHAT_DIR/pids/\$NAME.pid"
@@ -214,10 +219,12 @@ if jq -e --arg name "$NAME" '.[$name]' "$SESSIONS_FILE" >/dev/null 2>&1; then
 fi
 
 # Register the session
+sessions_lock
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 UPDATED=$(jq --arg name "$NAME" --arg pane "$PANE" --arg ts "$TIMESTAMP" \
   '.[$name] = {"name": $name, "pane": $pane, "joined_at": $ts}' "$SESSIONS_FILE")
 echo "$UPDATED" > "$SESSIONS_FILE"
+sessions_unlock
 
 # Kill existing watchers for this session
 PID_FILE="$CHAT_DIR/pids/$NAME.pid"

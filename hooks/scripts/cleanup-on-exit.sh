@@ -6,6 +6,8 @@ set -euo pipefail
 
 CHAT_DIR="$HOME/agent-chat"
 SESSIONS_FILE="$CHAT_DIR/sessions.json"
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$HOOK_DIR/../../scripts/lib.sh"
 
 [[ -f "$SESSIONS_FILE" ]] || exit 0
 
@@ -57,8 +59,10 @@ fi
 pgrep -f "watcher\\.sh $NAME " 2>/dev/null | xargs kill 2>/dev/null || true
 
 # Remove from sessions.json
+sessions_lock
 UPDATED=$(jq --arg name "$NAME" 'del(.[$name])' "$SESSIONS_FILE" 2>/dev/null)
 echo "$UPDATED" > "$SESSIONS_FILE"
+sessions_unlock
 
 # Clean up .agent-chat-name
 if [[ -f ".agent-chat-name" && "$(cat .agent-chat-name)" == "$NAME" ]]; then

@@ -3,6 +3,8 @@ set -euo pipefail
 
 CHAT_DIR="$HOME/agent-chat"
 SESSIONS_FILE="$CHAT_DIR/sessions.json"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
 if [[ ! -f "$SESSIONS_FILE" ]]; then
   echo "No sessions file found. Nothing to leave."
@@ -48,8 +50,10 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 # Remove from sessions.json
+sessions_lock
 UPDATED=$(jq --arg name "$NAME" 'del(.[$name])' "$SESSIONS_FILE")
 echo "$UPDATED" > "$SESSIONS_FILE"
+sessions_unlock
 
 # Clean up .agent-chat-name file if it matches this session
 if [[ -f ".agent-chat-name" && "$(cat .agent-chat-name)" == "$NAME" ]]; then
