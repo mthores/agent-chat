@@ -66,9 +66,6 @@ if [[ "$NEEDS_RESTART" == true ]]; then
   # Write session name early so it's available after restart
   echo "$NAME" > "$CWD/.agent-chat-name"
 
-  # Write a marker file so the welcome hook knows this is a fresh join
-  echo "$NAME" > "$CHAT_DIR/fresh-join-${NAME}"
-
   # Write a self-contained bootstrap script that runs in the NEW terminal.
   # This script creates the tmux session, registers, starts watcher, launches claude,
   # and attaches — all from Terminal.app's environment (not Claude's sandbox).
@@ -108,8 +105,12 @@ echo \$! > "\$PID_FILE"
 # Keep tmux session alive even if claude exits
 tmux set-option -t "\$SESSION_NAME" remain-on-exit on 2>/dev/null || true
 
+# Show a welcome message before launching claude
+tmux send-keys -t "\$PANE" "echo ''" Enter
+tmux send-keys -t "\$PANE" "echo 'You started a fresh agent-chat session as \"\$NAME\". Use /resume to continue an existing session.'" Enter
+tmux send-keys -t "\$PANE" "echo ''" Enter
+
 # Launch a fresh claude session (no --continue to avoid duplicating conversation history).
-# The UserPromptSubmit hook (welcome-on-join.sh) will detect the fresh-join marker and ask about resuming.
 tmux send-keys -t "\$PANE" "unset CLAUDECODE && AGENT_CHAT_NAME=\$NAME claude" Enter
 
 echo "Attaching to tmux session '\$SESSION_NAME'..."
@@ -125,15 +126,22 @@ BOOTEOF
     TERM_APP="${TERM_PROGRAM:-Terminal}"
     case "$TERM_APP" in
       iTerm*|iTerm2|iTerm.app)
-        # Capture the original session ID so the bootstrap can close it
+        # Capture the original session ID EARLY (before any delays) so we can
+        # target this exact pane even if the user switches tabs/windows.
         ORIG_SESSION_ID=$(osascript -e 'tell application "iTerm2" to get unique ID of current session of current window' 2>/dev/null)
+        # Split the ORIGINAL session by unique ID (not "current session" which may change)
         osascript -e "tell application \"iTerm2\"
-          tell current session of current window
-            set newSession to (split vertically with same profile)
-          end tell
-          tell newSession
-            write text \"bash $BOOTSTRAP_SCRIPT\"
-          end tell
+          repeat with w in windows
+            repeat with t in tabs of w
+              repeat with s in sessions of t
+                if unique ID of s is \"$ORIG_SESSION_ID\" then
+                  tell s to set newSession to (split vertically with same profile)
+                  tell newSession to write text \"bash $BOOTSTRAP_SCRIPT\"
+                  return
+                end if
+              end repeat
+            end repeat
+          end repeat
         end tell" 2>/dev/null && OPENED=true
         # Append close command to bootstrap script (runs after tmux attach exits)
         if [[ -n "$ORIG_SESSION_ID" ]]; then
@@ -141,10 +149,14 @@ BOOTEOF
           CLOSE_SCRIPT="/tmp/ac-close-orig-${NAME}.sh"
           cat > "$CLOSE_SCRIPT" <<CLOSEEOF
 #!/bin/bash
-osascript -e 'tell application "iTerm2" to repeat with s in sessions of current tab of current window' \\
+osascript -e 'tell application "iTerm2" to repeat with w in windows' \\
+  -e 'repeat with t in tabs of w' \\
+  -e 'repeat with s in sessions of t' \\
   -e 'if unique ID of s is "${ORIG_SESSION_ID}" then' \\
   -e 'tell s to close' \\
   -e 'end if' \\
+  -e 'end repeat' \\
+  -e 'end repeat' \\
   -e 'end repeat' 2>/dev/null
 CLOSEEOF
           chmod +x "$CLOSE_SCRIPT"
