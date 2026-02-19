@@ -66,6 +66,23 @@ cd /path/to/agent-chat
 git pull
 ```
 
+### Permissions setup (recommended)
+
+By default, Claude Code prompts for permission each time the plugin runs a bash command. To auto-allow all agent-chat script operations, add these two patterns to your global settings:
+
+**File:** `~/.claude/settings.json`
+
+Add these entries to `permissions.allow`:
+
+```json
+"Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*.sh*)",
+"Bash(bash *agent-chat*/scripts/*.sh*)"
+```
+
+The first pattern matches when Claude uses the `${CLAUDE_PLUGIN_ROOT}` env var directly. The second matches expanded paths (e.g., `~/.claude/plugins/cache/embla/agent-chat/1.0.0/scripts/inbox.sh`). Together they cover all agent-chat operations: inbox, send, join, leave, history.
+
+Other commands the plugin uses (`jq`, `cat`, `echo`) are typically already in most users' allow lists. If not, add `"Bash(jq *)"` and `"Bash(cat *)"` as well.
+
 ## Usage
 
 ### Joining the chat
@@ -76,7 +93,7 @@ Open a Claude Code session in any project directory and join with a name:
 /chat join backend
 ```
 
-If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically — as a vertical split in iTerm2, or a new window in other terminals. Your conversation resumes via `claude --continue` and the original pane closes automatically. Repeat in other terminals with different names:
+If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically — as a vertical split in iTerm2, or a new window in other terminals. A fresh Claude session starts (no `--continue`, to avoid duplicating conversation history) and the original pane closes automatically. In iTerm2, the split targets the originating pane by unique session ID, so switching tabs before the split completes won't cause it to land in the wrong pane. Repeat in other terminals with different names:
 
 ```
 /chat join frontend
@@ -133,7 +150,7 @@ cd ~/Code/my-api
 agent-chat backend
 ```
 
-This is useful if you want live push notifications delivered directly into your Claude session. Use `/resume` to pick up a previous conversation.
+This is useful if you want live push notifications delivered directly into your Claude session.
 
 ## How it works
 
