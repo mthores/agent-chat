@@ -28,7 +28,7 @@ fi
 if [[ -z "$PANE" ]]; then
   if [[ -n "${TMUX:-}" ]]; then
     # Already inside tmux — auto-detect current pane
-    PANE="$(tmux display-message -p '#{session_name}:#{window_name}')"
+    PANE="$(tmux display-message -p '#{session_name}:#{window_index}')"
 
     # Check if this pane is already claimed by another session
     CLAIMED_BY=$(jq -r --arg self "$NAME" --arg pane "$PANE" \
@@ -48,7 +48,6 @@ fi
 # When not in tmux (or pane conflict), bootstrap a new terminal with tmux
 if [[ "$NEEDS_RESTART" == true ]]; then
   SESSION_NAME="ac-${NAME}"
-  PANE="${SESSION_NAME}:0"
   CWD="$(pwd)"
 
   # Pre-create directories so the bootstrap script can use them
@@ -75,7 +74,6 @@ if [[ "$NEEDS_RESTART" == true ]]; then
 
 NAME="${NAME}"
 SESSION_NAME="${SESSION_NAME}"
-PANE="${PANE}"
 CWD="${CWD}"
 SCRIPT_DIR="${SCRIPT_DIR}"
 CHAT_DIR="${CHAT_DIR}"
@@ -90,6 +88,9 @@ fi
 
 # Create the tmux session
 tmux new-session -d -s "\$SESSION_NAME" -c "\$CWD" -x 200 -y 50
+
+# Determine the actual pane target (respects tmux base-index setting)
+PANE="\$(tmux display-message -t "\$SESSION_NAME" -p '#{session_name}:#{window_index}')"
 
 # Register the session in sessions.json
 TIMESTAMP="\$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -121,9 +122,15 @@ BOOTEOF
     TERM_APP="${TERM_PROGRAM:-Terminal}"
     case "$TERM_APP" in
       iTerm*|iTerm2|iTerm.app)
-        # Capture the original session ID EARLY so we can target this exact
-        # pane even if the user switches tabs/windows before the split runs.
-        ORIG_SESSION_ID=$(osascript -e 'tell application "iTerm2" to get unique ID of current session of current window' 2>/dev/null)
+        # Get the session ID from the inherited env var (set by iTerm2 in the
+        # shell that launched Claude). This is reliable regardless of which
+        # tab/window is focused, unlike "current session of current window".
+        if [[ -n "${ITERM_SESSION_ID:-}" ]]; then
+          ORIG_SESSION_ID="${ITERM_SESSION_ID#*:}"
+        else
+          # Fallback: query AppleScript (less reliable if user switched tabs)
+          ORIG_SESSION_ID=$(osascript -e 'tell application "iTerm2" to get unique ID of current session of current window' 2>/dev/null)
+        fi
         # Split the ORIGINAL session by unique ID (not "current session" which may change)
         osascript -e "tell application \"iTerm2\"
           repeat with w in windows
