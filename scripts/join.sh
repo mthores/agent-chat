@@ -105,12 +105,7 @@ echo \$! > "\$PID_FILE"
 # Keep tmux session alive even if claude exits
 tmux set-option -t "\$SESSION_NAME" remain-on-exit on 2>/dev/null || true
 
-# Show a welcome message before launching claude
-tmux send-keys -t "\$PANE" "echo ''" Enter
-tmux send-keys -t "\$PANE" "echo 'You started a fresh agent-chat session as \"\$NAME\". Use /resume to continue an existing session.'" Enter
-tmux send-keys -t "\$PANE" "echo ''" Enter
-
-# Launch a fresh claude session (no --continue to avoid duplicating conversation history).
+# Launch a fresh claude session (no --continue to avoid duplicating conversation history)
 tmux send-keys -t "\$PANE" "unset CLAUDECODE && AGENT_CHAT_NAME=\$NAME claude" Enter
 
 echo "Attaching to tmux session '\$SESSION_NAME'..."
@@ -126,8 +121,8 @@ BOOTEOF
     TERM_APP="${TERM_PROGRAM:-Terminal}"
     case "$TERM_APP" in
       iTerm*|iTerm2|iTerm.app)
-        # Capture the original session ID EARLY (before any delays) so we can
-        # target this exact pane even if the user switches tabs/windows.
+        # Capture the original session ID EARLY so we can target this exact
+        # pane even if the user switches tabs/windows before the split runs.
         ORIG_SESSION_ID=$(osascript -e 'tell application "iTerm2" to get unique ID of current session of current window' 2>/dev/null)
         # Split the ORIGINAL session by unique ID (not "current session" which may change)
         osascript -e "tell application \"iTerm2\"
