@@ -46,38 +46,44 @@ handle_new_message() {
 
   # Nudge the tmux pane with a short message that Claude will act on
   # Send text and Enter separately so Claude Code's TUI registers the submit
-  tmux send-keys -t "$PANE" -l "New message from @${SENDER}. Check inbox."
+  tmux send-keys -t "$PANE" -l "New message from @${SENDER}. Check inbox." || true
   sleep 0.1
-  tmux send-keys -t "$PANE" Enter
+  tmux send-keys -t "$PANE" Enter || true
 }
 
 case "$OS" in
   Darwin)
-    # macOS: use fswatch
     if ! command -v fswatch >/dev/null 2>&1; then
       echo "Error: fswatch is required on macOS. Install with: brew install fswatch"
       exit 1
     fi
-
-    fswatch -0 --event Created "$INBOX_DIR" | while IFS= read -r -d '' FILE; do
-      handle_new_message "$FILE"
-    done
     ;;
-
   Linux)
-    # Linux: use inotifywait
     if ! command -v inotifywait >/dev/null 2>&1; then
       echo "Error: inotifywait is required on Linux. Install with: apt install inotify-tools"
       exit 1
     fi
-
-    inotifywait -m -e create --format '%w%f' "$INBOX_DIR" | while IFS= read -r FILE; do
-      handle_new_message "$FILE"
-    done
     ;;
-
   *)
     echo "Error: Unsupported OS '$OS'. Only macOS and Linux are supported."
     exit 1
     ;;
 esac
+
+# Auto-restart loop: if fswatch/inotifywait dies unexpectedly, retry.
+while true; do
+  case "$OS" in
+    Darwin)
+      fswatch -0 --event Created "$INBOX_DIR" | while IFS= read -r -d '' FILE; do
+        handle_new_message "$FILE"
+      done
+      ;;
+    Linux)
+      inotifywait -m -e create --format '%w%f' "$INBOX_DIR" | while IFS= read -r FILE; do
+        handle_new_message "$FILE"
+      done
+      ;;
+  esac
+  # Brief pause before restarting to avoid tight loops
+  sleep 2
+done
