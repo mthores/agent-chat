@@ -66,6 +66,9 @@ if [[ "$NEEDS_RESTART" == true ]]; then
   # Write session name early so it's available after restart
   echo "$NAME" > "$CWD/.agent-chat-name"
 
+  # Write a marker file so the welcome hook knows this is a fresh join
+  echo "$NAME" > "$CHAT_DIR/fresh-join-${NAME}"
+
   # Write a self-contained bootstrap script that runs in the NEW terminal.
   # This script creates the tmux session, registers, starts watcher, launches claude,
   # and attaches — all from Terminal.app's environment (not Claude's sandbox).
@@ -105,8 +108,9 @@ echo \$! > "\$PID_FILE"
 # Keep tmux session alive even if claude exits
 tmux set-option -t "\$SESSION_NAME" remain-on-exit on 2>/dev/null || true
 
-# Launch claude --continue inside the tmux session
-tmux send-keys -t "\$PANE" "unset CLAUDECODE && AGENT_CHAT_NAME=\$NAME claude --continue" Enter
+# Launch a fresh claude session (no --continue to avoid duplicating conversation history).
+# The UserPromptSubmit hook (welcome-on-join.sh) will detect the fresh-join marker and ask about resuming.
+tmux send-keys -t "\$PANE" "unset CLAUDECODE && AGENT_CHAT_NAME=\$NAME claude" Enter
 
 echo "Attaching to tmux session '\$SESSION_NAME'..."
 sleep 1
