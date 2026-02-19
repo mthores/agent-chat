@@ -1,7 +1,7 @@
 ---
 name: chat
 description: Send and manage agent chat messages
-argument-hint: "<join|leave|send|inbox|history|who|discover> [args]"
+argument-hint: "<join|leave|send|inbox|history|who> [args]"
 allowed-tools: Bash
 ---
 
@@ -16,8 +16,6 @@ Manage the agent-chat messaging system.
 - `/chat inbox` — Check for new messages
 - `/chat history` — View recent message history
 - `/chat who` — List active sessions
-- `/chat discover` — Auto-discover and register `wt/*` tmux sessions
-- `/chat discover <prefix>` — Discover sessions matching a custom prefix
 
 Parse the user's input after `/chat` and execute the appropriate script from `${CLAUDE_PLUGIN_ROOT}/scripts/`.
 
@@ -28,7 +26,6 @@ Script mapping:
 - `inbox` → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/inbox.sh`
 - `history` → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/history.sh`
 - `who` → `jq '.' ~/agent-chat/sessions.json`
-- `discover` → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/discover.sh [prefix]`
 
 ## Handling /chat join restart
 
