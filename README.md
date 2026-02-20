@@ -76,10 +76,12 @@ Add these entries to `permissions.allow`:
 
 ```json
 "Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/*.sh*)",
-"Bash(bash *agent-chat*/scripts/*.sh*)"
+"Bash(${CLAUDE_PLUGIN_ROOT}/scripts/*.sh*)",
+"Bash(bash *agent-chat*/scripts/*.sh*)",
+"Bash(*agent-chat*/scripts/*.sh*)"
 ```
 
-The first pattern matches when Claude uses the `${CLAUDE_PLUGIN_ROOT}` env var directly. The second matches expanded paths (e.g., `~/.claude/plugins/cache/embla/agent-chat/1.0.0/scripts/inbox.sh`). Together they cover all agent-chat operations: inbox, send, join, leave, history.
+The patterns with the `bash` prefix match explicit `bash script.sh` invocations, while the patterns without it match direct `script.sh` invocations. The `${CLAUDE_PLUGIN_ROOT}` variants match the env var form; the `*agent-chat*` variants match expanded paths. Together they cover all agent-chat operations: inbox, send, join, leave, history.
 
 Other commands the plugin uses (`jq`, `cat`, `echo`) are typically already in most users' allow lists. If not, add `"Bash(jq *)"` and `"Bash(cat *)"` as well.
 
