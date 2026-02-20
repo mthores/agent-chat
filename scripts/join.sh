@@ -19,6 +19,24 @@ NAME="$1"
 PANE="${2:-}"
 NEEDS_RESTART=false
 
+# Check for required dependencies before proceeding
+MISSING=()
+command -v tmux >/dev/null 2>&1 || MISSING+=("tmux")
+command -v jq >/dev/null 2>&1 || MISSING+=("jq")
+OS="$(uname -s)"
+case "$OS" in
+  Darwin) command -v fswatch >/dev/null 2>&1 || MISSING+=("fswatch") ;;
+  Linux)  command -v inotifywait >/dev/null 2>&1 || MISSING+=("inotify-tools") ;;
+esac
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+  echo "MISSING_DEPENDENCIES: ${MISSING[*]}"
+  case "$OS" in
+    Darwin) echo "Install with: brew install ${MISSING[*]}" ;;
+    Linux)  echo "Install with: sudo apt install ${MISSING[*]}" ;;
+  esac
+  exit 1
+fi
+
 # Initialize sessions.json early so we can check claimed panes
 mkdir -p "$CHAT_DIR"
 if [[ ! -f "$SESSIONS_FILE" ]]; then
