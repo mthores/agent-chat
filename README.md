@@ -100,6 +100,8 @@ If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux sess
 /chat join mobile
 ```
 
+The chat name and the tmux session name are fully decoupled — `sessions.json` maps your chosen alias to the underlying tmux pane. This means you can join pre-existing tmux sessions (e.g., `wt/*` worktree sessions) with any alias you like.
+
 Each session gets its own tmux pane — the plugin prevents two sessions from sharing the same pane. When you close Claude, the session is automatically cleaned up.
 
 ### Sending messages
@@ -139,6 +141,7 @@ This stops the watcher and removes your session. Also happens automatically when
 /chat inbox                        # Check for new messages
 /chat history                      # View recent message history
 /chat who                          # List active sessions
+/chat clean                        # Remove stale sessions with dead tmux panes
 ```
 
 ### Alternative: CLI launcher
