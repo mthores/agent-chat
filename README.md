@@ -95,7 +95,7 @@ Open a Claude Code session in any project directory and join with a name:
 /chat join backend
 ```
 
-If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically — as a vertical split in iTerm2, or a new window in other terminals. A fresh Claude session starts (no `--continue`, to avoid duplicating conversation history) and the original pane closes automatically. In iTerm2, the split targets the originating pane by unique session ID, so switching tabs before the split completes won't cause it to land in the wrong pane. Repeat in other terminals with different names:
+If you're inside tmux, your pane is auto-detected. If not, a dedicated tmux session (`ac-backend`) is created and a new terminal pane opens automatically — as a vertical split in iTerm2 or Ghostty, or a new window in other terminals. A fresh Claude session starts (no `--continue`, to avoid duplicating conversation history). In iTerm2, the split targets the originating pane by unique session ID and closes the original pane automatically. In Ghostty, the split uses System Events keystrokes (`Cmd+D`) and clipboard paste; the original pane stays open since Ghostty doesn't yet expose session IDs for pane targeting. Repeat in other terminals with different names:
 
 ```
 /chat join frontend
