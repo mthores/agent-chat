@@ -190,6 +190,31 @@ CLOSEEOF
 exec tmux attach|" "$BOOTSTRAP_SCRIPT"
         fi
         ;;
+      ghostty)
+        # Ghostty has no AppleScript dictionary or session IDs (yet), so we use
+        # System Events keystrokes. Cmd+D = new_split:right (Ghostty default).
+        # Clipboard-paste avoids keystroke-by-keystroke capitalization issues.
+        SAVED_CLIPBOARD="$(pbpaste 2>/dev/null || true)"
+        printf '%s' "bash $BOOTSTRAP_SCRIPT" | pbcopy
+        osascript \
+          -e 'tell application "Ghostty" to activate' \
+          -e 'delay 0.3' \
+          -e 'tell application "System Events"' \
+          -e '  tell process "Ghostty"' \
+          -e '    keystroke "d" using command down' \
+          -e '    delay 0.5' \
+          -e '    keystroke "v" using command down' \
+          -e '    delay 0.1' \
+          -e '    key code 36' \
+          -e '  end tell' \
+          -e 'end tell' 2>/dev/null && OPENED=true
+        # Restore clipboard after osascript completes (paste already processed)
+        if [[ -n "$SAVED_CLIPBOARD" ]]; then
+          printf '%s' "$SAVED_CLIPBOARD" | pbcopy
+        else
+          pbcopy < /dev/null 2>/dev/null || true
+        fi
+        ;;
       *)
         osascript -e "tell application \"Terminal\"
           do script \"bash $BOOTSTRAP_SCRIPT\"
