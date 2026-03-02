@@ -1,0 +1,6 @@
+{
+  "name": "agent-chat",
+  "version": "1.0.0",
+  "description": "Group chat for AI CLI sessions. Chat between Claude Code and Gemini CLI sessions via a shared message bus.",
+  "contextFileName": "GEMINI.md"
+}

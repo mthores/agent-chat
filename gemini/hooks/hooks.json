@@ -1,0 +1,46 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "agent-chat-setup",
+            "type": "command",
+            "command": "${extensionPath}${/}hooks${/}scripts${/}session-start.sh",
+            "timeout": 10000,
+            "description": "Set up agent-chat and check for unread messages"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "agent-chat-inbox-check",
+            "type": "command",
+            "command": "${extensionPath}${/}hooks${/}scripts${/}before-agent.sh",
+            "timeout": 3000,
+            "description": "Check for unread agent-chat messages on each prompt"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "agent-chat-cleanup",
+            "type": "command",
+            "command": "${extensionPath}${/}hooks${/}scripts${/}session-end.sh",
+            "timeout": 10000,
+            "description": "Clean up agent-chat session on exit"
+          }
+        ]
+      }
+    ]
+  }
+}

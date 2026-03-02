@@ -7,17 +7,42 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 usage() {
-  echo "Usage: join.sh <name> [tmux-pane]"
+  echo "Usage: join.sh <name> [tmux-pane] [--cli claude|gemini]"
   echo "  name       — session name (e.g. backend, frontend)"
   echo "  tmux-pane  — tmux pane target (auto-detected if inside tmux)"
+  echo "  --cli      — CLI tool to use (auto-detected if not specified)"
   exit 1
 }
 
-[[ $# -lt 1 ]] && usage
+NAME=""
+PANE=""
+CLI=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --cli) CLI="${2:-}"; shift 2 ;;
+    *)
+      if [[ -z "$NAME" ]]; then
+        NAME="$1"
+      elif [[ -z "$PANE" ]]; then
+        PANE="$1"
+      fi
+      shift
+      ;;
+  esac
+done
 
-NAME="$1"
-PANE="${2:-}"
+[[ -z "$NAME" ]] && usage
+
 NEEDS_RESTART=false
+
+# Auto-detect CLI tool
+if [[ -z "$CLI" ]]; then
+  if [[ -n "${GEMINI_PROJECT_DIR:-}" ]]; then
+    CLI="gemini"
+  else
+    CLI="claude"
+  fi
+fi
 
 # Check for required dependencies before proceeding
 MISSING=()
@@ -97,6 +122,7 @@ CWD="${CWD}"
 SCRIPT_DIR="${SCRIPT_DIR}"
 CHAT_DIR="${CHAT_DIR}"
 SESSIONS_FILE="${SESSIONS_FILE}"
+CLI="${CLI}"
 
 source "\$SCRIPT_DIR/lib.sh"
 
@@ -116,8 +142,8 @@ PANE="\$(tmux display-message -t "\$SESSION_NAME" -p '#{session_name}:#{window_i
 # Register the session in sessions.json
 sessions_lock
 TIMESTAMP="\$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-UPDATED=\$(jq --arg name "\$NAME" --arg pane "\$PANE" --arg ts "\$TIMESTAMP" \
-  '.[\$name] = {"name": \$name, "pane": \$pane, "joined_at": \$ts}' "\$SESSIONS_FILE")
+UPDATED=\$(jq --arg name "\$NAME" --arg pane "\$PANE" --arg ts "\$TIMESTAMP" --arg cli "\$CLI" \
+  '.[\$name] = {"name": \$name, "pane": \$pane, "joined_at": \$ts, "cli": \$cli}' "\$SESSIONS_FILE")
 echo "\$UPDATED" > "\$SESSIONS_FILE"
 sessions_unlock
 
@@ -129,8 +155,13 @@ echo \$! > "\$PID_FILE"
 # Keep tmux session alive even if claude exits
 tmux set-option -t "\$SESSION_NAME" remain-on-exit on 2>/dev/null || true
 
-# Launch a fresh claude session (no --continue to avoid duplicating conversation history)
-tmux send-keys -t "\$PANE" "unset CLAUDECODE && AGENT_CHAT_NAME=\$NAME claude" Enter
+# Launch the appropriate CLI session
+if [[ "\$CLI" == "gemini" ]]; then
+  tmux send-keys -t "\$PANE" "AGENT_CHAT_NAME=\$NAME gemini" Enter
+else
+  # Launch a fresh claude session (no --continue to avoid duplicating conversation history)
+  tmux send-keys -t "\$PANE" "unset CLAUDECODE && AGENT_CHAT_NAME=\$NAME claude" Enter
+fi
 
 echo "Attaching to tmux session '\$SESSION_NAME'..."
 sleep 1
@@ -264,8 +295,8 @@ fi
 # Register the session
 sessions_lock
 TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-UPDATED=$(jq --arg name "$NAME" --arg pane "$PANE" --arg ts "$TIMESTAMP" \
-  '.[$name] = {"name": $name, "pane": $pane, "joined_at": $ts}' "$SESSIONS_FILE")
+UPDATED=$(jq --arg name "$NAME" --arg pane "$PANE" --arg ts "$TIMESTAMP" --arg cli "$CLI" \
+  '.[$name] = {"name": $name, "pane": $pane, "joined_at": $ts, "cli": $cli}' "$SESSIONS_FILE")
 echo "$UPDATED" > "$SESSIONS_FILE"
 sessions_unlock
 
